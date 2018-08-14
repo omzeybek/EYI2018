@@ -1,0 +1,253 @@
+#save.image("Muhendis_kizlar.Rdata")
+hhia.2017<-read.csv(file.choose(),sep=";",stringsAsFactors = TRUE)
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(sqldf)
+library(mosaic)
+library(scales)
+library(tidyverse)
+names(hhia.2017)
+class(hhia.2017$HG110)
+
+MK_hhia<-hhia.2017[,c(1:2,4:10,24,25:26,28:29,33,22,101)]
+names(MK_hhia)
+class(hhia.2017$EGITIM_DEVAM_K)
+####################################################
+#Model 1 ve Model 2 için Targetları oluşturuyorum. #
+###################################################
+
+MK_hhia$ID<-concat(MK_hhia$REFERANS_YIL,MK_hhia$BIRIMNO,MK_hhia$FERTNO)
+
+MK_hhia$ISTIHDAM_STEM_GENC_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1 &hhia.2017$DURUM==1,1,0)
+#22 - 35 yaş arası Yüksek Okul, Fakulte, Yüksek Lisans mezunu, STEM'e giren alanlardan mezun kişiler = 1, all other= 0
+
+MK_hhia$ISTIHDAM_STEM_GENC_KADIN_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1 &hhia.2017$DURUM==1&hhia.2017$CINSIYET==2,1,0)
+#22 -35 yaş arası Yüksek Okul, Fakulte, Yüksek Lisans mezunu, STEM'e giren alanlardan mezun çalışan insanlar içersinden kadınlar =1 , all other= 0
+
+
+#############################################################
+#Model 1 ve 2 için bağımsız değişkenler buradan üretiliyor. #
+############################################################
+
+#Yüksek Lisans Flag - Yüksek Lisans MEzunları =1 
+MK_hhia$Yks_Ls_F<-ifelse(hhia.2017$OKUL_BITEN_K==5,1,0)
+
+#Örgün Eğitime Devam mı? Flagi yaratılıyor 
+MK_hhia$EGITIM_DEVAM_K_F<-ifelse(MK_hhia$EGITIM_DEVAM_K==1,1,0)
+
+#Özel ders veya kursa gidiyor musunuz? flagi yazılıyor 
+MK_hhia$KURS_F<-ifelse(MK_hhia$KURS==1,1,0)
+
+#Medeni durum flagi yaratılıyor (TUIK flagleri 1/2 şekilinde yarattığından, ikili cevap
+#olsa dahi her flagi yeniden yaratmalıyız.)
+MK_hhia$EVLI_F<-ifelse(MK_hhia$MEDENI_DURUM==2,1,0)
+MK_hhia$HIC_EVLNMDI_F<-ifelse(MK_hhia$MEDENI_DURUM==1,1,0)
+
+#Bu işinizden dolayı Sosyal Güvenlik Kurumu'na (SGK) kayıtlı mısınız? Flagi yapılıyor 
+
+MK_hhia$KAYITLILIK<-if_else(hhia.2017$KAYITLILIK==1,1,0)
+
+#Mevcut işte çalışma süresi 
+
+MK_hhia$Calisma_sure<-hhia.2017$REFERANS_YIL-hhia.2017$IS_BASLAMA_YIL
+
+#Hayatınız boyunca bir işte çalıştınız mı flag'i 
+
+MK_hhia$GECMIS_IS_F<-if_else(hhia.2017$GECMIS_IS==1,1,0)
+
+#Bu işinizin süreklilik durumu nedir? Flag
+
+MK_hhia$IS_SUREKLILIK<-if_else(hhia.2017$IS_SUREKLILIK==1,1,0)
+MK_hhia$GECICI_MEVSIMLIK_ISCI_F<-if_else(hhia.2017$IS_SUREKLILIK==2,1,0)
+
+#İşyerinizdeki çalışma şekliniz Tam vs. Yarı Zamanlı 
+
+MK_hhia$YARI_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==2,1,0)
+MK_hhia$TAM_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==1,1,0)
+
+
+#Şimdi ikiden fazla farklı değer alan nominal değişkenlerimi var/yok şeklinde dummy variable'a değiştireceğim. 
+#Nominal değişkenler arasında büyüklük küçüklük ilişkisi yoktur. Bu nedenle kodlandıkları 1,2,3,4 gibi şekillerle modele yerleştirilemezler 
+#Bunları modelimizde temsil edebilmek için, 
+# 1. Ücretli, maaşlı veya yevmiyeli 
+# 2. İşveren
+# 3. Kendi hesabına
+# 4. Ücretsiz aile işçisi
+# şeklinde kırılımı olan bir yapıyı 4 ayrı değişken ile takip edeceğim. 
+
+#Bu işi plyr'nin map values fonksiyonu ile yapacağız 
+library(plyr)
+
+#**************************************************************************************
+#*Nominal değişkenlerden 0/1 dummylerine geçebilmek için önce kodlar ile labelları de-*
+#ğiştiriyorum.                                                                        * 
+#**************************************************************************************
+
+#DEĞİŞKEN : Referans haftası içinde bu işinizde/işyerinizde niçin çalışmadınız?
+MK_hhia_T1<-MK_hhia[,c(18,2,3,4)]
+MK_hhia_T1$CALISMAMA_NEDEN_REF<-mapvalues(hhia.2017$CALISMAMA_NEDEN_REF,
+                                         from= c(1,2,3,4,5,6,7,8,98),
+                                         to= c("Kendisinin hastalanması, yaralanması veya geçici rahatsızlanması",
+                                               "Doğum izni",
+                                               "Tatil veya izin",
+                                               "Kötü hava koşulları",
+                                               "İşin gereği",
+                                               "Eğitim,öğretim",
+                                               "Teknik veya ekonomik nedenlerle iş yavaşlatılması veya durdurulması",
+                                               "İş olmadığından",
+                                               "Diğer"))
+
+#DEĞİŞKEN : Bu yer, kuruluş veya işyerinde işteki durumunuz nedir?
+
+MK_hhia_T1$ISTEKI_DURUM_K<-mapvalues(hhia.2017$ISTEKI_DURUM_K,
+                                         from= c(1,2,3,4),
+                                         to= c("Ücretli, maaşlı veya yevmiyeli",
+                                               "İşveren",
+                                               "Kendi hesabına",
+                                               "Ücretsiz aile işçisi"))
+                      
+#DEĞİŞKEN : Çalıştığınız bu işyerinin statüsünü belirtiniz.
+
+MK_hhia_T1$OZEL_KAMU<-mapvalues(hhia.2017$OZEL_KAMU,
+                               from=c(1,2,98),
+                               to=c("Özel",
+                                    "Kamu",
+                                    "Diğer"))
+
+#DEĞİŞKEN: Çalıştığınız bu işyerinin durumu?
+
+MK_hhia_T1$ISYERI_DURUM<-mapvalues(hhia.2017$ISYERI_DURUM,
+                                from=c(1,2,3,4,5),
+                                to=c("Tarla,bahçe",
+                                     "Düzenli işyeri (Fabrika, büro, mağaza, vb.)",
+                                     "Pazar yeri",
+                                     "Seyyar veya sabit olmayan işyeri",
+                                     "Evde (Kendi veya başkasının evinde)"))
+
+#DEĞİŞKEN: Bu yer, kuruluş veya işyerinde çalışan sayısını belirtiniz.
+
+MK_hhia_T1$CALISAN_SAYI_HH<-mapvalues(hhia.2017$CALISAN_SAYI_HH,
+                                      from=c(1,2,3,4,5),
+                                      to=c("10 ve daha az kişi",
+                                           "11-19 Kişi",
+                                           "20-49 Kişi",
+                                           "50 veya daha fazla kişi",
+                                           "Bilmiyor, fakat 10'dan fazla kişi"))
+
+#DEĞİŞKEN: Kişinin yaptığı işe uygun meslek kodu ISCO08 
+
+MK_hhia_T1$ISCO08<-mapvalues(hhia.2017$ISCO08_ESAS_K,
+                             from = c(11,	12,	13,	14,	21,	22,	23,	24,	25,	26,	31,	32,	33,	34,	35,	41,	42,	43,	44,	51,	52,	53,	54,	61,	62,	63,	71,	72,	73,	74,	75,	81,	82,	83,	91,	92,	93,	94,	95,	96),
+                             to=c(
+                                   "Başkanlar, üst düzey yöneticiler ve kanun yapıcılar",
+"Ticari ve idari müdürler",
+"Üretim ve uzmanlaşmış hizmet müdürleri",
+"Ağırlama, perakende ve diğer hizmet müdürleri",
+"Bilim ve mühendislik alanlarındaki profesyonel meslek mensupları",
+"Sağlık profesyonelleri",
+"Eğitim ile ilgili profesyonel meslek mensupları",
+"İş ve yönetim ile ilgili profesyonel meslek mensupları",
+"Bilgi ve iletişim teknolojisi ile ilgili profesyonel meslek mensupları",
+"Hukuk, sosyal ve kültür ile ilgili profesyonel meslek mensupları",
+"Bilim ve mühendislik ile ilgili yardımcı profesyonel meslek mensupları",
+"Yardımcı sağlık profesyonelleri",
+"İş ve idare ile ilgili yardımcı profesyonel meslek mensupları",
+"Hukuk, sosyal, kültür ve benzeri alanlar ile ilgili yardımcı profesyonel meslek mensupları",
+"Bilgi ve iletişim teknisyenleri",
+"Genel büro elemanları ile klavye kullanan büro elemanları",
+"Müşteri hizmetlerinde çalışan elemanlar",
+"Sayısal işlemler yapan ve malzeme kayıtları tutan büro elemanları",
+"Diğer büro hizmetlerinde çalışan elemanlar",
+"Kişisel hizmetler veren elemanlar",
+"Satış hizmetleri veren elemanlar",
+"Kişisel bakım hizmetleri veren elemanlar",
+"Koruma hizmetleri veren elemanlar",
+"Pazara yönelik nitelikli tarım çalışanları",
+"Pazara yönelik nitelikli ormancılık, su ürünleri ve avcılık çalışanları",
+"Kendi geçimine yönelik çiftçiler, balıkçılar, avcılar ve  toplayıcılar",
+"İnşaat ve ilgili işlerde çalışan sanatkarlar (elektrikçiler hariç)",
+"Metal işleme, makine ve ilgili işlerde çalışan sanatkarlar",
+"El sanatları ve basım ile ilgili işlerde çalışanlar",
+"Elektrik ve elektronik işlerde çalışan sanatkarlar",
+"Gıda işleme, ağaç işleri, giyim eşyası ve diğer sanatkarlar ve ilgili işlerde çalışanlar",
+"Sabit tesis ve makine operatörleri",
+"Montajcılar",
+"Sürücüler ve hareketli makine ve teçhizat operatörleri",
+"Temizlikçiler ve yardımcılar",
+"Tarım, ormancılık ve balıkçılık  sektörlerinde nitelik gerektirmeyen işlerde çalışanlar",
+"Madencilik, inşaat, imalat ve ulaştırma sektörlerinde nitelik gerektirmeyen işlerde çalışanlar",
+"Yiyecek hazırlama yardımcıları",
+"Cadde ve sokaklarda satış ve hizmet işlerinde çalışanlar",
+"Çöpçüler, atık toplayıcılar ve diğer nitelik gerektirmeyen işlerde çalışanlar"
+))
+
+#DEĞİŞKEN : En son çalıştığınız bu işinizden ayrılmanızdaki esas neden neydi?
+
+MK_hhia_T1$IS_AYRIL_NEDEN<-mapvalues(hhia.2017$IS_AYRIL_NEDEN,
+                                     from=c(1,2,3,4,5,6,7,8,9,10,98),
+                                     to=c("Geçici bir işti bitti",
+                                          "Mevsimlik çalışıyordu",
+                                          "İşten çıkartıldı/işyeri kapandı/iflas etti",
+                                          "İşinden memnun değildi",
+                                          "Kendisinin hastalanması veya sakatlanması",
+                                          "Ailedeki çocuklara veya bakıma muhtaç yetişkinlere baktığı için",
+                                          "Eşinin isteği üzerine/evlilik nedeniyle",
+                                          "Eğitim / öğretim",
+                                          "Emeklilik (Erken emeklilik dahil",
+                                          "Askere gitti",
+                                          "Diğer"))
+
+#DEĞİŞKEN: Referans haftası içinde, esas işinizde neden genellikle çalıştığınız süreden daha fazla çalıştınız?
+
+MK_hhia_T1$FAZLACAL_NEDEN<-mapvalues(hhia.2017$FAZLACAL_NEDEN,
+                                     from=c(1,2,98),
+                                     to=c("Esnek_Çalışma",
+                                          "Fazla Mesai",
+                                          "Diğer"))
+#DEĞİŞKEN: İşiniz tamamını veya belli bir bölümünü evinizde gerçekleştiriyor musunuz? 
+
+MK_hhia_T1$EVDE_CAL_SIKLIK<-mapvalues(hhia.2017$EVDE_CAL_SIKLIK,
+                                      from=c(1,2,3),
+                                      to=c("Genellikle Evde Çalışıyorum",
+                                           "Bazen Evde Çalışıyorum",
+                                           "Hiç Evde Çalışmıyorum"))
+
+#DEĞİŞKEN: Neden yarı zamanlı çalışıyorsunuz?"
+
+MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(table(hhia.2017$YARIZAMAN_NEDEN),
+                                     c(#1.1,#1.2,#1.3,
+                                             2,3,4,5,6,11,12,13,98),
+                                     c(#"Ailedeki çocuklara baktığı için",
+                                       #"Ailedeki bakıma muhtaç yetişkinlere baktığı için",
+                                       #"Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için",
+                                       "Eğitimine devam ettiği için",
+                                       "Kendi hastalığı ya da engellilik hali nedeniyle",
+                                       "Diğer ailevi ve kişisel nedenlerden dolayı",
+                                       "Tam zamanlı bir iş bulamadığı için",
+                                       "İşin niteliği gereği",
+                                       "Diğer"))
+
+
+"1.1. Ailedeki çocuklara baktığı için
+1.2. Ailedeki bakıma muhtaç yetişkinlere baktığı için
+1.3. Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için
+2. Eğitimine devam ettiği için
+3. Kendi hastalığı ya da engellilik hali nedeniyle
+4. Diğer ailevi ve kişisel nedenlerden dolayı
+5. Tam zamanlı bir iş bulamadığı için
+6. İşin niteliği gereği
+98. Diğer"
+summary(hhia.2017$EGITIM_DEVAM_K)
+#Kategorik variable'dan binary dummy'e çevirilecek variableları listeliyorum. 
+
+colnames(MK_hhia)[c(10,15)]
+fordummies<-data.frame(MK_hhia[c(10,15)])
+
+
+#3,.... nolu kolonlardaki kategorik değişkenleri alıp bunları 0/1 dummysi şekline  çevirmek için bir ara tablo yaratıyorum 
+library(fastDummies)
+fordummies<-MK_hhia[ ,c(10,15)]
+table(MK_hhia$ISCEDF13_K)
+names(MK_hhia)
+
