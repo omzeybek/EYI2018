@@ -7,6 +7,7 @@ library(sqldf)
 library(mosaic)
 library(scales)
 library(tidyverse)
+library(crayon)
 names(hhia.2017)
 class(hhia.2017$HG110)
 
@@ -17,7 +18,8 @@ class(hhia.2017$EGITIM_DEVAM_K)
 #Model 1 ve Model 2 için Targetları oluşturuyorum. #
 ###################################################
 
-MK_hhia$ID<-concat(MK_hhia$REFERANS_YIL,MK_hhia$BIRIMNO,MK_hhia$FERTNO)
+MK_hhia$ID<-paste(MK_hhia$REFERANS_YIL,MK_hhia$BIRIMNO,MK_hhia$FERTNO,sep="")
+
 
 MK_hhia$ISTIHDAM_STEM_GENC_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1 &hhia.2017$DURUM==1,1,0)
 #22 - 35 yaş arası Yüksek Okul, Fakulte, Yüksek Lisans mezunu, STEM'e giren alanlardan mezun kişiler = 1, all other= 0
@@ -66,6 +68,20 @@ MK_hhia$GECICI_MEVSIMLIK_ISCI_F<-if_else(hhia.2017$IS_SUREKLILIK==2,1,0)
 MK_hhia$YARI_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==2,1,0)
 MK_hhia$TAM_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==1,1,0)
 
+#IBBS Bölge 
+MK_hhia$IBBS_2<-hhia.2017$IBBS_2
+
+#Doğduğunuzdan  beri bu ilde mi yaşıyorsunuz? 
+MK_hhia$BUIL_YASAMA<-hhia.2017$BUIL_YASAMA
+
+#Yuksek Lisans'a Devam 
+MK_hhia$YUKSEK_LISANS_D<-if_else(hhia.2017$OKUL_DEVAM_K==5,1,0)
+
+#Lisans'a devam 
+MK_hhia$Lisans_D<-if_else(hhia.2017$OKUL_DEVAM_K==4,1,0)
+
+#Gelir
+MK_hhia$GELIR<-hhia.2017$GELIR_GECENAY_K
 
 #Şimdi ikiden fazla farklı değer alan nominal değişkenlerimi var/yok şeklinde dummy variable'a değiştireceğim. 
 #Nominal değişkenler arasında büyüklük küçüklük ilişkisi yoktur. Bu nedenle kodlandıkları 1,2,3,4 gibi şekillerle modele yerleştirilemezler 
@@ -78,14 +94,14 @@ MK_hhia$TAM_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==1,1,0)
 
 #Bu işi plyr'nin map values fonksiyonu ile yapacağız 
 library(plyr)
-
+names(MK_hhia)
 #**************************************************************************************
 #*Nominal değişkenlerden 0/1 dummylerine geçebilmek için önce kodlar ile labelları de-*
 #ğiştiriyorum.                                                                        * 
 #**************************************************************************************
 
 #DEĞİŞKEN : Referans haftası içinde bu işinizde/işyerinizde niçin çalışmadınız?
-MK_hhia_T1<-MK_hhia[,c(18,2,3,4)]
+MK_hhia_T1<-MK_hhia[,c(36,18,2,3,4)]
 MK_hhia_T1$CALISMAMA_NEDEN_REF<-mapvalues(hhia.2017$CALISMAMA_NEDEN_REF,
                                          from= c(1,2,3,4,5,6,7,8,98),
                                          to= c("Kendisinin hastalanması, yaralanması veya geçici rahatsızlanması",
@@ -215,12 +231,11 @@ MK_hhia_T1$EVDE_CAL_SIKLIK<-mapvalues(hhia.2017$EVDE_CAL_SIKLIK,
 
 #DEĞİŞKEN: Neden yarı zamanlı çalışıyorsunuz?"
 
-MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(table(hhia.2017$YARIZAMAN_NEDEN),
-                                     c(#1.1,#1.2,#1.3,
-                                             2,3,4,5,6,11,12,13,98),
-                                     c(#"Ailedeki çocuklara baktığı için",
-                                       #"Ailedeki bakıma muhtaç yetişkinlere baktığı için",
-                                       #"Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için",
+MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(hhia.2017$YARIZAMAN_NEDEN,
+                                     c(11,12,13,2,3,4,5,6,98),
+                                     c("Ailedeki çocuklara baktığı için",
+                                       "Ailedeki bakıma muhtaç yetişkinlere baktığı için",
+                                       "Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için",
                                        "Eğitimine devam ettiği için",
                                        "Kendi hastalığı ya da engellilik hali nedeniyle",
                                        "Diğer ailevi ve kişisel nedenlerden dolayı",
@@ -228,18 +243,55 @@ MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(table(hhia.2017$YARIZAMAN_NEDEN),
                                        "İşin niteliği gereği",
                                        "Diğer"))
 
+#DEĞİŞKEN: Bu işinizi nasıl buldunuz?
 
-"1.1. Ailedeki çocuklara baktığı için
-1.2. Ailedeki bakıma muhtaç yetişkinlere baktığı için
-1.3. Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için
-2. Eğitimine devam ettiği için
-3. Kendi hastalığı ya da engellilik hali nedeniyle
-4. Diğer ailevi ve kişisel nedenlerden dolayı
-5. Tam zamanlı bir iş bulamadığı için
-6. İşin niteliği gereği
-98. Diğer"
-summary(hhia.2017$EGITIM_DEVAM_K)
+MK_hhia_T1$ISBUL_YONTEM<-mapvalues(hhia.2017$ISBUL_YONTEM,
+                                   from=c(1,2,3,4,98),
+                                   to=c("Kendi imkanlarımla",
+                                        "Türkiye İş Kurumu kanalıyla",
+                                        "Özel istihdam ofisleri kanalıyla",
+                                        "Akraba, eş ve dost aracılığıyla",
+                                        "Diğer"))
+
+#DEĞİŞKEN : Eski Yerleşim Bölgesi Tür 
+
+MK_hhia_T1$YERLESIM_TUR<-mapvalues(hhia.2017$YERLESIM_TUR,
+                                  from=c(1,2,3),
+                                  to=c(" İl merkezi",
+                                       "İlçe merkezi",
+                                       "Bucak veya köy"))
+
+#DEĞİŞKEN: En son bitirilen bölüm kodu
+MK_hhia_T1$MEZUN_BOLUM<-mapvalues(hhia.2017$ISCEDF13_K,from=c(1:22),
+                                  to=c("Eğitim",
+                                    "Sanat",
+                                    "Beşeri bilimler",
+                                    "Diller",
+                                    "Sosyal bilimler ve davranış bilimleri",
+                                    "Gazetecilik ve enformasyon",
+                                    "İş ve yönetim",
+                                    "Hukuk",
+                                    "Biyoloji, çevre ve ilgili birimler",
+                                    "Fiziki bilimler",
+                                    "Matematik ve istatistik",
+                                    "Bilişim ve iletişim teknolojileri",
+                                    "Mühendislik ve mühendislik işleri",
+                                    "İmalat ve işleme",
+                                    "Mimarlık ve inşaat",
+                                    "Tarım, ormancılık ve balıkçılık ",
+                                    "Veterinerlik",
+                                    "Sağlık",
+                                    "Refah (Sosyal hizmetler)",
+                                    "Kişisel hizmetler",
+                                    "İş sağlığı ve ulaştırma hizmetleri",
+                                    "Güvenlik hizmetleri"))
+
 #Kategorik variable'dan binary dummy'e çevirilecek variableları listeliyorum. 
+
+View(MK_hhia_T1)
+write.csv(MK_hhia_T1)
+
+
 
 colnames(MK_hhia)[c(10,15)]
 fordummies<-data.frame(MK_hhia[c(10,15)])
