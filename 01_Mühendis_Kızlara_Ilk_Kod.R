@@ -101,10 +101,17 @@ names(MK_hhia)
 #**************************************************************************************
 
 #DEĞİŞKEN : Referans haftası içinde bu işinizde/işyerinizde niçin çalışmadınız?
-MK_hhia_T1<-MK_hhia[,c(36,18,2,3,4)]
-MK_hhia_T1$CALISMAMA_NEDEN_REF<-mapvalues(hhia.2017$CALISMAMA_NEDEN_REF,
-                                         from= c(1,2,3,4,5,6,7,8,98),
-                                         to= c("Kendisinin hastalanması, yaralanması veya geçici rahatsızlanması",
+MK_hhia_T1<-MK_hhia[,c(18,2,3,4)]
+names(MK_hhia_T1)
+#Bütün boş alanları 0 ile dolduruyorum. 
+
+hhia.2017$CALISMAMA_NEDEN_REF[is.na(hhia.2017$CALISMAMA_NEDEN_REF)]<-0
+hhia.2017[is.na(hhia.2017)]<-0
+
+
+MK_hhia_T1$CALISMAMA_NEDEN_REF<-mapvalues(as.factor(hhia.2017$CALISMAMA_NEDEN_REF),
+                                         from= c(0,1,2,3,4,5,6,7,8,98),
+                                         to= c("Boş","Kendisinin hastalanması, yaralanması veya geçici rahatsızlanması",
                                                "Doğum izni",
                                                "Tatil veya izin",
                                                "Kötü hava koşulları",
@@ -116,26 +123,27 @@ MK_hhia_T1$CALISMAMA_NEDEN_REF<-mapvalues(hhia.2017$CALISMAMA_NEDEN_REF,
 
 #DEĞİŞKEN : Bu yer, kuruluş veya işyerinde işteki durumunuz nedir?
 
-MK_hhia_T1$ISTEKI_DURUM_K<-mapvalues(hhia.2017$ISTEKI_DURUM_K,
-                                         from= c(1,2,3,4),
-                                         to= c("Ücretli, maaşlı veya yevmiyeli",
+MK_hhia_T1$ISTEKI_DURUM_K<-mapvalues(as.factor(hhia.2017$ISTEKI_DURUM_K),
+                                         from= c(0,1,2,3,4),
+                                         to= c("Boş","Ücretli, maaşlı veya yevmiyeli",
                                                "İşveren",
                                                "Kendi hesabına",
                                                "Ücretsiz aile işçisi"))
-                      
+                      table(MK_hhia_T1$ISTEKI_DURUM_K)
 #DEĞİŞKEN : Çalıştığınız bu işyerinin statüsünü belirtiniz.
 
-MK_hhia_T1$OZEL_KAMU<-mapvalues(hhia.2017$OZEL_KAMU,
-                               from=c(1,2,98),
-                               to=c("Özel",
+                      
+MK_hhia_T1$OZEL_KAMU<-mapvalues(as.factor(hhia.2017$OZEL_KAMU),
+                               from=c(0,1,2,98),
+                               to=c("Boş","Özel",
                                     "Kamu",
                                     "Diğer"))
 
 #DEĞİŞKEN: Çalıştığınız bu işyerinin durumu?
 
 MK_hhia_T1$ISYERI_DURUM<-mapvalues(hhia.2017$ISYERI_DURUM,
-                                from=c(1,2,3,4,5),
-                                to=c("Tarla,bahçe",
+                                from=c(0,1,2,3,4,5),
+                                to=c("Boş","Tarla,bahçe",
                                      "Düzenli işyeri (Fabrika, büro, mağaza, vb.)",
                                      "Pazar yeri",
                                      "Seyyar veya sabit olmayan işyeri",
@@ -144,8 +152,8 @@ MK_hhia_T1$ISYERI_DURUM<-mapvalues(hhia.2017$ISYERI_DURUM,
 #DEĞİŞKEN: Bu yer, kuruluş veya işyerinde çalışan sayısını belirtiniz.
 
 MK_hhia_T1$CALISAN_SAYI_HH<-mapvalues(hhia.2017$CALISAN_SAYI_HH,
-                                      from=c(1,2,3,4,5),
-                                      to=c("10 ve daha az kişi",
+                                      from=c(0,1,2,3,4,5),
+                                      to=c("Boş","10 ve daha az kişi",
                                            "11-19 Kişi",
                                            "20-49 Kişi",
                                            "50 veya daha fazla kişi",
@@ -154,9 +162,9 @@ MK_hhia_T1$CALISAN_SAYI_HH<-mapvalues(hhia.2017$CALISAN_SAYI_HH,
 #DEĞİŞKEN: Kişinin yaptığı işe uygun meslek kodu ISCO08 
 
 MK_hhia_T1$ISCO08<-mapvalues(hhia.2017$ISCO08_ESAS_K,
-                             from = c(11,	12,	13,	14,	21,	22,	23,	24,	25,	26,	31,	32,	33,	34,	35,	41,	42,	43,	44,	51,	52,	53,	54,	61,	62,	63,	71,	72,	73,	74,	75,	81,	82,	83,	91,	92,	93,	94,	95,	96),
+                             from = c(0,11,	12,	13,	14,	21,	22,	23,	24,	25,	26,	31,	32,	33,	34,	35,	41,	42,	43,	44,	51,	52,	53,	54,	61,	62,	63,	71,	72,	73,	74,	75,	81,	82,	83,	91,	92,	93,	94,	95,	96),
                              to=c(
-                                   "Başkanlar, üst düzey yöneticiler ve kanun yapıcılar",
+                                   "Boş","Başkanlar, üst düzey yöneticiler ve kanun yapıcılar",
 "Ticari ve idari müdürler",
 "Üretim ve uzmanlaşmış hizmet müdürleri",
 "Ağırlama, perakende ve diğer hizmet müdürleri",
@@ -200,9 +208,9 @@ MK_hhia_T1$ISCO08<-mapvalues(hhia.2017$ISCO08_ESAS_K,
 
 #DEĞİŞKEN : En son çalıştığınız bu işinizden ayrılmanızdaki esas neden neydi?
 
-MK_hhia_T1$IS_AYRIL_NEDEN<-mapvalues(hhia.2017$IS_AYRIL_NEDEN,
-                                     from=c(1,2,3,4,5,6,7,8,9,10,98),
-                                     to=c("Geçici bir işti bitti",
+MK_hhia_T1$IS_AYRIL_NEDEN<-mapvalues(as.factor(hhia.2017$IS_AYRIL_NEDEN),
+                                     from=c(0,1,2,3,4,5,6,7,8,9,10,98),
+                                     to=c("Boş","Geçici bir işti bitti",
                                           "Mevsimlik çalışıyordu",
                                           "İşten çıkartıldı/işyeri kapandı/iflas etti",
                                           "İşinden memnun değildi",
@@ -217,23 +225,24 @@ MK_hhia_T1$IS_AYRIL_NEDEN<-mapvalues(hhia.2017$IS_AYRIL_NEDEN,
 #DEĞİŞKEN: Referans haftası içinde, esas işinizde neden genellikle çalıştığınız süreden daha fazla çalıştınız?
 
 MK_hhia_T1$FAZLACAL_NEDEN<-mapvalues(hhia.2017$FAZLACAL_NEDEN,
-                                     from=c(1,2,98),
-                                     to=c("Esnek_Çalışma",
+                                     from=c(0,1,2,98),
+                                     to=c("Boş","Esnek_Çalışma",
                                           "Fazla Mesai",
                                           "Diğer"))
+table(MK_hhia_T1$FAZLACAL_NEDEN)
 #DEĞİŞKEN: İşiniz tamamını veya belli bir bölümünü evinizde gerçekleştiriyor musunuz? 
 
 MK_hhia_T1$EVDE_CAL_SIKLIK<-mapvalues(hhia.2017$EVDE_CAL_SIKLIK,
-                                      from=c(1,2,3),
-                                      to=c("Genellikle Evde Çalışıyorum",
+                                      from=c(0,1,2,3),
+                                      to=c("Boş","Genellikle Evde Çalışıyorum",
                                            "Bazen Evde Çalışıyorum",
                                            "Hiç Evde Çalışmıyorum"))
 
 #DEĞİŞKEN: Neden yarı zamanlı çalışıyorsunuz?"
 
 MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(hhia.2017$YARIZAMAN_NEDEN,
-                                     c(11,12,13,2,3,4,5,6,98),
-                                     c("Ailedeki çocuklara baktığı için",
+                                     c(0,11,12,13,2,3,4,5,6,98),
+                                     c("Boş","Ailedeki çocuklara baktığı için",
                                        "Ailedeki bakıma muhtaç yetişkinlere baktığı için",
                                        "Hem ailedeki çocuklara hem de bakıma muhtaç yetişkinlere baktığı için",
                                        "Eğitimine devam ettiği için",
@@ -246,8 +255,8 @@ MK_hhia_T1$YARIZAMAN_NEDEN<-mapvalues(hhia.2017$YARIZAMAN_NEDEN,
 #DEĞİŞKEN: Bu işinizi nasıl buldunuz?
 
 MK_hhia_T1$ISBUL_YONTEM<-mapvalues(hhia.2017$ISBUL_YONTEM,
-                                   from=c(1,2,3,4,98),
-                                   to=c("Kendi imkanlarımla",
+                                   from=c(0,1,2,3,4,98),
+                                   to=c("Boş","Kendi imkanlarımla",
                                         "Türkiye İş Kurumu kanalıyla",
                                         "Özel istihdam ofisleri kanalıyla",
                                         "Akraba, eş ve dost aracılığıyla",
@@ -256,14 +265,16 @@ MK_hhia_T1$ISBUL_YONTEM<-mapvalues(hhia.2017$ISBUL_YONTEM,
 #DEĞİŞKEN : Eski Yerleşim Bölgesi Tür 
 
 MK_hhia_T1$YERLESIM_TUR<-mapvalues(hhia.2017$YERLESIM_TUR,
-                                  from=c(1,2,3),
-                                  to=c(" İl merkezi",
+                                  from=c(0,1,2,3),
+                                  to=c("Boş","İl merkezi",
                                        "İlçe merkezi",
                                        "Bucak veya köy"))
 
 #DEĞİŞKEN: En son bitirilen bölüm kodu
-MK_hhia_T1$MEZUN_BOLUM<-mapvalues(hhia.2017$ISCEDF13_K,from=c(1:22),
-                                  to=c("Eğitim",
+hhia.2017$ISCEDF13_K[is.na(hhia.2017$ISCEDF13_K)]<-0
+table(hhia.2017$ISCEDF13_K)
+MK_hhia_T1$MEZUN_BOLUM<-mapvalues(hhia.2017$ISCEDF13_K,from=c(0:22),
+                                  to=c("Boş","Eğitim",
                                     "Sanat",
                                     "Beşeri bilimler",
                                     "Diller",
@@ -285,21 +296,13 @@ MK_hhia_T1$MEZUN_BOLUM<-mapvalues(hhia.2017$ISCEDF13_K,from=c(1:22),
                                     "Kişisel hizmetler",
                                     "İş sağlığı ve ulaştırma hizmetleri",
                                     "Güvenlik hizmetleri"))
-
-#Kategorik variable'dan binary dummy'e çevirilecek variableları listeliyorum. 
-
-View(MK_hhia_T1)
-write.csv(MK_hhia_T1)
+install.packages("stats")
+library(stats)
 
 
 
-colnames(MK_hhia)[c(10,15)]
-fordummies<-data.frame(MK_hhia[c(10,15)])
+Categoricaltobinary<-data.frame(model.matrix(~MEZUN_BOLUM+YERLESIM_TUR+ISBUL_YONTEM+YARIZAMAN_NEDEN+EVDE_CAL_SIKLIK+ISCO08+CALISAN_SAYI_HH+ISYERI_DURUM+ISCO08+CALISAN_SAYI_HH+OZEL_KAMU+ISTEKI_DURUM_K,MK_hhia_T1))
+MK_hhia_t1[]
+Categoricaltobinary_2<-merge(data.frame(MK_hhia_T1),data.frame(Categoricaltobinary))
 
-
-#3,.... nolu kolonlardaki kategorik değişkenleri alıp bunları 0/1 dummysi şekline  çevirmek için bir ara tablo yaratıyorum 
-library(fastDummies)
-fordummies<-MK_hhia[ ,c(10,15)]
-table(MK_hhia$ISCEDF13_K)
-names(MK_hhia)
 
