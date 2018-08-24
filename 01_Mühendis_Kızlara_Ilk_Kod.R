@@ -1,5 +1,7 @@
 #save.image("Muhendis_kizlar.Rdata")
-hhia.2017<-read.csv(file.choose(),sep=";",stringsAsFactors = TRUE)
+hhia2017<-read.csv(file.choose(),sep=";",stringsAsFactors = TRUE)
+names(hhia2017)
+hhia.2017<-hhia2017%>%filter(YAS>22&YAS<35&OKUL_BITEN_K%in%c("4","5")&ISCEDF13_K%in%c("13","9","10","11","12")&DURUM==1&CINSIYET==2)
 library(dplyr)
 library(plyr)
 library(ggplot2)
@@ -10,9 +12,9 @@ library(tidyverse)
 library(crayon)
 names(hhia.2017)
 class(hhia.2017$HG110)
-
 MK_hhia<-hhia.2017[,c(1:2,4:10,24,25:26,28:29,33,22,101)]
-names(MK_hhia)
+
+table(MK_hhia$ISTIHDAM_STEM_GENC_KADIN_F)
 class(hhia.2017$EGITIM_DEVAM_K)
 ####################################################
 #Model 1 ve Model 2 için Targetları oluşturuyorum. #
@@ -20,14 +22,13 @@ class(hhia.2017$EGITIM_DEVAM_K)
 
 MK_hhia$ID<-paste(MK_hhia$REFERANS_YIL,MK_hhia$BIRIMNO,MK_hhia$FERTNO,sep="")
 
-
 MK_hhia$ISTIHDAM_STEM_GENC_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1 &hhia.2017$DURUM==1,1,0)
 #22 - 35 yaş arası Yüksek Okul, Fakulte, Yüksek Lisans mezunu, STEM'e giren alanlardan mezun kişiler = 1, all other= 0
 
-MK_hhia$ISTIHDAM_STEM_GENC_KADIN_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1 &hhia.2017$DURUM==1&hhia.2017$CINSIYET==2,1,0)
+MK_hhia$ISTIHDAM_STEM_GENC_KADIN_F<-ifelse(hhia.2017$REFERANS_YIL==2017 & hhia.2017$YAS>22 & hhia.2017$YAS<35 & hhia.2017$OKUL_BITEN_K%in%c("4","5")&hhia.2017$ISCEDF13_K%in%c("13","9","10","11","12")==1&hhia.2017$DURUM%in%c(1)&hhia.2017$CINSIYET==2&hhia.2017$ISCO08_ESAS_K=="21",1,0)
 #22 -35 yaş arası Yüksek Okul, Fakulte, Yüksek Lisans mezunu, STEM'e giren alanlardan mezun çalışan insanlar içersinden kadınlar =1 , all other= 0
 
-
+table(MK_hhia$ISTIHDAM_STEM_GENC_KADIN_F)
 #############################################################
 #Model 1 ve 2 için bağımsız değişkenler buradan üretiliyor. #
 ############################################################
@@ -69,19 +70,42 @@ MK_hhia$YARI_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==2,1,0)
 MK_hhia$TAM_ZAMANLI_F<-if_else(hhia.2017$CALISMA_SEKLI==1,1,0)
 
 #IBBS Bölge 
-MK_hhia$IBBS_2<-hhia.2017$IBBS_2
+MK_hhia$IBBS_3By<-if_else(hhia.2017$IBBS_2%in%c("TR10","TR31","TR51"),1,0)
 
 #Doğduğunuzdan  beri bu ilde mi yaşıyorsunuz? 
 MK_hhia$BUIL_YASAMA<-hhia.2017$BUIL_YASAMA
 
 #Yuksek Lisans'a Devam 
-MK_hhia$YUKSEK_LISANS_D<-if_else(hhia.2017$OKUL_DEVAM_K==5,1,0)
+MK_hhia$YUKSEK_LISANS_D<-if_else(hhia.2017$OKUL_DEVAM_K==5&hhia.2017$EGITIM_DEVAM_K==1,1,0)
+MK_hhia$YUKSEK_LISANS_M<-if_else(hhia.2017$OKUL_BITEN_K=="5",1,0)
 
 #Lisans'a devam 
-MK_hhia$Lisans_D<-if_else(hhia.2017$OKUL_DEVAM_K==4,1,0)
+MK_hhia$Lisans_D<-if_else(hhia.2017$OKUL_DEVAM_K==4&hhia.2017$SINIF_DEVAM==4,1,0)
 
 #Gelir
+
 MK_hhia$GELIR<-hhia.2017$GELIR_GECENAY_K
+MK_hhia$GELIR[is.na(MK_hhia$GELIR)]<-0
+MK_hhia$KAMU<-if_else(hhia.2017$OZEL_KAMU%in%c(1),1,0)
+MK_hhia$Muhendis<-if_else(hhia.2017$ISCEDF13_K=="13",1,0)
+MK_hhia$Mat_ist<-if_else(hhia.2017$ISCEDF13_K%in%c("11","12"),1,0)
+MK_hhia$Calisma_sure<-if_else(MK_hhia$Calisma_sure==0,1,MK_hhia$Calisma_sure)
+#model1
+
+MK_hhia$UCRETLI<-if_else(hhia.2017$ISTEKI_DURUM_K==1,1,0)
+library(stats)
+Model2<-glm(data=MK_hhia,ISTIHDAM_STEM_GENC_KADIN_F~GELIR+IBBS_3By+Calisma_sure+BUIL_YASAMA,family="binomial")
+summary(Model2)
+names(MK_hhia)
+?glm.fit
+nrow(MK_hhia)
+
+?glm
+
+
+
+
+
 
 #Şimdi ikiden fazla farklı değer alan nominal değişkenlerimi var/yok şeklinde dummy variable'a değiştireceğim. 
 #Nominal değişkenler arasında büyüklük küçüklük ilişkisi yoktur. Bu nedenle kodlandıkları 1,2,3,4 gibi şekillerle modele yerleştirilemezler 
@@ -133,11 +157,6 @@ MK_hhia_T1$ISTEKI_DURUM_K<-mapvalues(as.factor(hhia.2017$ISTEKI_DURUM_K),
 #DEĞİŞKEN : Çalıştığınız bu işyerinin statüsünü belirtiniz.
 
                       
-MK_hhia_T1$OZEL_KAMU<-mapvalues(as.factor(hhia.2017$OZEL_KAMU),
-                               from=c(0,1,2,98),
-                               to=c("Boş","Özel",
-                                    "Kamu",
-                                    "Diğer"))
 
 #DEĞİŞKEN: Çalıştığınız bu işyerinin durumu?
 
